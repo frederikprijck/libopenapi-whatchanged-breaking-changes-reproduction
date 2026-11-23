@@ -6,7 +6,7 @@ This was found through [`openapi-changes`](https://github.com/pb33f/openapi-chan
 
 ## Background
 
-[pb33f/libopenapi#719](https://github.com/pb33f/libopenapi/issues/719) reported that adding a required property was breaking for every schema, whichever direction the data flows. It was fixed by [#725](https://github.com/pb33f/libopenapi/pull/725) and released in v0.44.0. The fix works out which schemas are used only by responses (or only by requests) and relaxes the rule for those. It is conservative: whenever it cannot prove the use, it keeps the old rule. That is where the cases below fall through.
+[pb33f/libopenapi#719](https://github.com/pb33f/libopenapi/issues/719) reported that adding a required property was breaking for every schema, whichever direction the data flows. It was fixed by [#725](https://github.com/pb33f/libopenapi/pull/725) and released in v0.44.0. The fix works out which schemas are used only by responses (or only by requests) and relaxes the rule for those. It is conservative: whenever it cannot prove the use, it keeps the old rule. That happens in cases 03 and 05. Case 04 is a separate rule for closed schemas, and case 06 combines all three.
 
 ## Reproduce
 
@@ -45,7 +45,7 @@ In cases 01 to 06 the two changes are the new property and the new `required` en
 | [`01-direct-open`](cases/01-direct-open) | `$ref` to `Widget` | 0 | Control. The fix works. |
 | [`02-array-open`](cases/02-array-open) | array of `$ref` to `Widget` | 0 | Control. The fix works. |
 | [`03-oneof`](cases/03-oneof) | `oneOf` of an array and an object wrapper, each referencing `Widget` | 1 | `oneOf` branches are counted as used by both requests and responses ([schema_usage.go#L266-L267](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L266-L267)), so `Widget` is never "response only". `allOf` and `anyOf` keep the real direction ([#L254-L255](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L254-L255)). |
-| [`04-closed`](cases/04-closed) | `$ref` to `Widget` with `additionalProperties: false` | 1 | For a closed response schema, a required name stays breaking unless it was already declared in the old `properties` ([`requiredAdditionRule`, #L53-L74](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L53-L74)). |
+| [`04-closed`](cases/04-closed) | `$ref` to `Widget` with `additionalProperties: false` | 1 | For a closed response schema, a required name stays breaking unless it was already declared in the old `properties`, or nothing else in the schema changed ([`requiredAdditionRule`, #L53-L74](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L53-L74)). |
 | [`05-discriminator-elsewhere`](cases/05-discriminator-elsewhere) | `$ref` to `Widget`, plus an **unrelated** `/pets` route whose schema has a `discriminator` | 1 | Reaching a `discriminator` (or `$dynamicRef`, `$recursiveRef`, `$id`) makes the usage walk give up ([#L272-L275](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L272-L275)), and then no usage information exists for the whole document ([#L111-L139](https://github.com/pb33f/libopenapi/blob/v0.44.0/what-changed/model/schema_usage.go#L111-L139)). |
 | [`06-oneof-closed-discriminator`](cases/06-oneof-closed-discriminator) | `oneOf`, closed, plus the `/pets` route | 1 | All three of the above. |
 | [`07-closed-optional`](cases/07-closed-optional) | `$ref` to a closed `Widget`, which gains an **optional** `extra` property | 0 | Same as case 04, except `extra` is not listed in `required`. Not reported. |
@@ -57,17 +57,19 @@ Case 05 is identical to case 01 except for the extra `/pets` route in both `base
 diff cases/01-direct-open/head.yaml cases/05-discriminator-elsewhere/head.yaml
 ```
 
-Cases 04 and 07 have the same `base.yaml`, and their `head.yaml` files differ in one line: whether `extra` is listed in `required`. A client that validates strictly against the old closed schema rejects both responses, because it does not know the `extra` property, yet only case 04 is reported.
+Cases 04 and 07 have the same `base.yaml`, and their `head.yaml` files differ in one line: whether `extra` is listed in `required`. A client that validates strictly against the old closed schema rejects every response that contains `extra`. With `required`, every response contains it. Without it, only some may. Only case 04 is reported.
 
 ```sh
 diff cases/04-closed/head.yaml cases/07-closed-optional/head.yaml
 ```
 
-## What I would expect
+## Reported upstream
 
-- **`oneOf`:** follow the branches with the direction of the enclosing schema, like `allOf` and `anyOf`. The `oneOf` rationale in the source is not documented, so there may be a reason to treat it as shared that I am missing.
-- **Discriminator:** limit the fallback to the schemas the walk could not follow, instead of the whole document. One unrelated discriminator currently disables the response-only classification for every schema in the spec.
-- **Closed schemas:** this one is deliberate and arguable (a client that validates strictly against the old closed schema would reject the new property). It is however inconsistent with how the new property itself is classified: in case 04 the added property is **not** reported as breaking (2 changes, 1 breaking), only the matching `required` entry is, and in case 07 the same property without `required` is not reported at all (1 change, 0 breaking).
+- **`oneOf` (case 03):** [pb33f/libopenapi#726](https://github.com/pb33f/libopenapi/issues/726), with a fix in [#727](https://github.com/pb33f/libopenapi/pull/727). Being careful with `oneOf` is right in general, because changing one branch can change which branches an instance matches. The fix keeps the direction only when no instance can match two branches, for example when they accept different JSON types.
+- **Discriminator (case 05):** [#728](https://github.com/pb33f/libopenapi/issues/728), with a fix in [#729](https://github.com/pb33f/libopenapi/pull/729). The fix handles the discriminator instead of giving up on the whole document.
+- **Closed schemas (cases 04, 07 and 08):** [#730](https://github.com/pb33f/libopenapi/issues/730), a question about which behaviour is intended. A new property on a closed response is reported as breaking only when it is listed in `required`. #725 describes the reason as "An old client can still reject a new mandatory field on a closed response".
+
+With both fixes, cases 03 and 05 report 0 breaking changes. Cases 04 and 06 are still reported, because of the closed schema.
 
 ## Other tools and versions
 
