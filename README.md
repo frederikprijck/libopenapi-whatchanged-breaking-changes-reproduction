@@ -1,6 +1,6 @@
 # libopenapi `what-changed`: required property added to a response-only schema is reported as breaking
 
-Adding a property to a schema that only **responses** use, and listing it in `required`, cannot break a client: the server now always sends one more field. [`pb33f/libopenapi`](https://github.com/pb33f/libopenapi) v0.44.0 recognises this in the simplest case, and still reports it as **breaking** in cases 03 to 06 below. Cases 07 and 08 are controls for a related question about closed schemas. This repository reproduces each case.
+Adding a property to a schema that only **responses** use, and listing it in `required`, does not break a client that tolerates additional properties: the server now always sends one more field. [`pb33f/libopenapi`](https://github.com/pb33f/libopenapi) v0.44.0 recognises this in the simplest case, and still reports it as **breaking** in cases 03 to 06 below. Case 04 (a closed schema) looks deliberate, so it is a question about intent and not a bug, and cases 07 and 08 are the controls for it. This repository reproduces each case.
 
 This was found through [`openapi-changes`](https://github.com/pb33f/openapi-changes), which uses libopenapi's `what-changed` package to classify changes. The reproduction uses libopenapi directly.
 
