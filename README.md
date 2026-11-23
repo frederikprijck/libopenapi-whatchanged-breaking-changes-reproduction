@@ -21,16 +21,18 @@ The program ([`main.go`](main.go)) compares `base.yaml` with `head.yaml` in ever
 Output:
 
 ```
-case                               changes  breaking  expected
-01-direct-open                     2        0         0  ok
-02-array-open                      2        0         0  ok
-03-oneof                           2        1         0  UNEXPECTED
-04-closed                          2        1         0  UNEXPECTED
-05-discriminator-elsewhere         2        1         0  UNEXPECTED
-06-oneof-closed-discriminator      2        1         0  UNEXPECTED
+case                               changes  breaking
+01-direct-open                     2        0
+02-array-open                      2        0
+03-oneof                           2        1   <- expected 0
+04-closed                          2        1   <- expected 0
+05-discriminator-elsewhere         2        1   <- expected 0
+06-oneof-closed-discriminator      2        1   <- expected 0
 
 4 of 6 cases are reported as breaking although only a response gained a required property.
 ```
+
+`changes` is the total number of changes in the case and `breaking` is how many of them are reported as breaking. The program exits with status 1 when a case is reported as breaking.
 
 The two changes in each case are the new property and the new `required` entry. Only the `required` entry is reported as breaking.
 

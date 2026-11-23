@@ -25,7 +25,7 @@ func main() {
 	sort.Strings(dirs)
 
 	mismatches := 0
-	fmt.Printf("%-34s %-8s %-9s %s\n", "case", "changes", "breaking", "expected")
+	fmt.Printf("%-34s %-8s %s\n", "case", "changes", "breaking")
 	for _, dir := range dirs {
 		base := mustLoad(filepath.Join(dir, "base.yaml"))
 		head := mustLoad(filepath.Join(dir, "head.yaml"))
@@ -37,12 +37,12 @@ func main() {
 		}
 
 		got := changes.TotalBreakingChanges()
-		verdict := "ok"
+		note := ""
 		if got != expectedBreaking {
-			verdict = "UNEXPECTED"
+			note = fmt.Sprintf("   <- expected %d", expectedBreaking)
 			mismatches++
 		}
-		fmt.Printf("%-34s %-8d %-9d %d  %s\n", filepath.Base(dir), changes.TotalChanges(), got, expectedBreaking, verdict)
+		fmt.Printf("%-34s %-8d %d%s\n", filepath.Base(dir), changes.TotalChanges(), got, note)
 	}
 
 	if mismatches > 0 {
