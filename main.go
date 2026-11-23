@@ -11,9 +11,9 @@ import (
 	"github.com/pb33f/libopenapi"
 )
 
-// What a direction-aware classifier should report for each case: in every case a property is
-// added to a schema that is only used by a response and listed in `required`. Adding a required
-// property to a response never breaks a client, so the expected number is always 0.
+// What a direction-aware classifier should report for each case: in every case a schema that is only
+// used by a response gains data (a property, or a `required` entry for it). A response that carries
+// more data does not break a client, so the expected number is always 0.
 const expectedBreaking = 0
 
 func main() {
@@ -46,7 +46,7 @@ func main() {
 	}
 
 	if mismatches > 0 {
-		fmt.Printf("\n%d of %d cases are reported as breaking although only a response gained a required property.\n", mismatches, len(dirs))
+		fmt.Printf("\n%d of %d cases are reported as breaking although only a response schema changed.\n", mismatches, len(dirs))
 		os.Exit(1)
 	}
 }
