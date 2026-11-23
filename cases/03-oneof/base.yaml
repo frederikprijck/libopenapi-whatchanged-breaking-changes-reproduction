@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info:
+  title: Reproduction
+  version: "1.0"
+paths:
+  /widgets:
+    get:
+      operationId: getWidgets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Widget"
+                  - type: object
+                    properties:
+                      widgets:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Widget"
+components:
+  schemas:
+    Widget:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
